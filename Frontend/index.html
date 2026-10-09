@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FastAPI Calculator</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --accent: #38bdf8;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --danger: #f87171;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+      margin: 0;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: 320px 380px;
+      gap: 24px;
+      max-width: 740px;
+      width: 100%;
+    }
+    .panel {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+    }
+    h2 { margin-top: 0; font-size: 1.25rem; font-weight: 600; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+    input, select, button {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: var(--text);
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    button {
+      background: var(--accent);
+      color: #0f172a;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.9; }
+    button.clear-btn {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+      margin-top: 12px;
+    }
+    .result-display {
+      margin-top: 16px;
+      padding: 12px;
+      background: #0b1120;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 1.2rem;
+      color: var(--accent);
+      text-align: right;
+    }
+    .history-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #334155;
+      font-family: monospace;
+      font-size: 0.95rem;
+    }
+    .history-item span { color: var(--muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Calculator Panel -->
+  <div class="panel">
+    <h2>Calculator</h2>
+    <div class="form-group">
+      <label>Operand 1</label>
+      <input type="number" id="num1" step="any" placeholder="0" />
+    </div>
+    <div class="form-group">
+      <label>Operation</label>
+      <select id="operation">
+        <option value="+">Add (+)</option>
+        <option value="-">Subtract (-)</option>
+        <option value="*">Multiply (×)</option>
+        <option value="/">Divide (÷)</option>
+        <option value="^">Power (^)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Operand 2</label>
+      <input type="number" id="num2" step="any" placeholder="0" />
+    </div>
+    <button onclick="performCalculation()">Calculate</button>
+    <div class="result-display" id="resultDisplay">—</div>
+  </div>
+
+  <!-- History Panel -->
+  <div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h2>History</h2>
+      <button class="clear-btn" style="width: auto; padding: 4px 10px; font-size: 0.8rem;" onclick="clearHistory()">Clear</button>
+    </div>
+    <ul class="history-list" id="historyList"></ul>
+  </div>
+</div>
+
+<script>
+  const API_BASE = "http://127.0.0.1:8000";
+
+  async function fetchHistory() {
+    try {
+      const res = await fetch(`${API_BASE}/history`);
+      const data = await res.json();
+      const list = document.getElementById("historyList");
+      list.innerHTML = "";
+      
+      data.forEach(item => {
+        const li = document.createElement("li");
+        li.className = "history-item";
+        li.innerHTML = `
+          <div>${item.num1} ${item.operation} ${item.num2} = <strong>${item.result}</strong></div>
+          <span>${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        `;
+        list.appendChild(li);
+      });
+    } catch (err) {
+      console.error("Failed to load history", err);
+    }
+  }
+
+  async function performCalculation() {
+    const num1 = parseFloat(document.getElementById("num1").value);
+    const num2 = parseFloat(document.getElementById("num2").value);
+    const operation = document.getElementById("operation").value;
+
+    if (isNaN(num1) || isNaN(num2)) {
+      alert("Please provide valid numbers.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/calculate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ num1, num2, operation })
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        alert(error.detail || "Calculation failed");
+        return;
+      }
+
+      const data = await res.json();
+      document.getElementById("resultDisplay").innerText = `= ${data.result}`;
+      fetchHistory();
+    } catch (err) {
+      alert("Could not reach backend API.");
+    }
+  }
+
+  async function clearHistory() {
+    await fetch(`${API_BASE}/history`, { method: "DELETE" });
+    fetchHistory();
+  }
+
+  fetchHistory();
+</script>
+
+</body>
+</html>
