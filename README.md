@@ -13,8 +13,6 @@ A full-stack web calculator built with a decoupled architecture. A lightweight H
 - [Getting Started](#getting-started)
 - [Running the Application](#running-the-application)
 - [API Reference](#api-reference)
-- [Troubleshooting](#troubleshooting)
-- [Security Notes](#security-notes)
 - [License](#license)
 
 ---
